@@ -32,35 +32,35 @@ function App() {
     return 'Good evening';
   };
 
-  const simulateAIResponse = (userMessage: string) => {
-    setIsTyping(true);
+  // const simulateAIResponse = (userMessage: string) => {
+  //   setIsTyping(true);
     
-    setTimeout(() => {
-      const responses = [
-        `That's an interesting question about "${userMessage}". Let me help you with that.`,
-        `I understand you're asking about "${userMessage}". Here's what I can tell you...`,
-        `Thanks for sharing that with me. Regarding "${userMessage}", I'd suggest considering multiple perspectives.`,
-        `Great question! Based on what you've asked about "${userMessage}", here are some key points to consider.`,
-        `I'd be happy to help you with "${userMessage}". Let me break this down for you.`
-      ];
+  //   setTimeout(() => {
+  //     const responses = [
+  //       `That's an interesting question about "${userMessage}". Let me help you with that.`,
+  //       `I understand you're asking about "${userMessage}". Here's what I can tell you...`,
+  //       `Thanks for sharing that with me. Regarding "${userMessage}", I'd suggest considering multiple perspectives.`,
+  //       `Great question! Based on what you've asked about "${userMessage}", here are some key points to consider.`,
+  //       `I'd be happy to help you with "${userMessage}". Let me break this down for you.`
+  //     ];
       
-      const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+  //     const randomResponse = responses[Math.floor(Math.random() * responses.length)];
       
-      const aiMessage: Message = {
-        id: Date.now().toString(),
-        type: 'ai',
-        content: randomResponse,
-        timestamp: new Date(),
-      };
+  //     const aiMessage: Message = {
+  //       id: Date.now().toString(),
+  //       type: 'ai',
+  //       content: randomResponse,
+  //       timestamp: new Date(),
+  //     };
       
-      setMessages(prev => [...prev, aiMessage]);
-      setIsTyping(false);
-    }, 1000 + Math.random() * 2000);
-  };
+  //     setMessages(prev => [...prev, aiMessage]);
+  //     setIsTyping(false);
+  //   }, 1000 + Math.random() * 2000);
+  // };
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (!inputValue.trim() && !uploadedFile) return;
-    
+  
     const userMessage: Message = {
       id: Date.now().toString(),
       type: 'user',
@@ -68,12 +68,55 @@ function App() {
       timestamp: new Date(),
       file: uploadedFile || undefined,
     };
-    
-    setMessages(prev => [...prev, userMessage]);
-    simulateAIResponse(inputValue.trim() || 'a document');
-    setInputValue('');
+    setMessages((prev) => [...prev, userMessage]);
+  
+    setIsTyping(true); // ✅ Start typing indicator
+  
+    try {
+      if (uploadedFile) {
+        const formData = new FormData();
+        formData.append("file", uploadedFile);
+        formData.append("sessionId", "demo-session");
+  
+        await fetch("http://localhost:3001/upload-pdf", {
+          method: "POST",
+          body: formData,
+        });
+      }
+  
+      const res = await fetch("http://localhost:3001/ask-deal-agent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: inputValue, sessionId: "demo-session" }),
+      });
+  
+      const data = await res.json();
+  
+      const aiMessage: Message = {
+        id: Date.now().toString(),
+        type: "ai",
+        content: data.answer || data.message || "⚠️ No response from backend.",
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, aiMessage]);
+    } catch (error) {
+      console.error("❌ Backend error:", error);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          type: "ai",
+          content: "⚠️ Something went wrong while communicating with the server.",
+          timestamp: new Date(),
+        },
+      ]);
+    }
+  
+    setIsTyping(false); // ✅ Stop typing indicator
+    setInputValue("");
     setUploadedFile(null);
   };
+  
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
