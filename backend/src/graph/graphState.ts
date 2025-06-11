@@ -5,8 +5,10 @@ export const GraphState = Annotation.Root({
   sessionId: Annotation<string>(),
   documents: Annotation<any[]>(),
   redFlags: Annotation<string[]>(),
-  score: Annotation<number>(),
-  scoreBreakdown: Annotation<Record<string, number>>(),
+  strategicFitScore: Annotation<number>(),
+  strategicFitScoreBreakdown: Annotation<Record<string, number>>(),
+  customerReadinessScore: Annotation<number>(),
+  customerReadinessScoreBreakdown: Annotation<Record<string, number>>(),
   qualificationVerdict: Annotation<"GO" | "REVIEW" | "NO-GO">(),
   strategyIdeas: Annotation<string[]>(),
 });
