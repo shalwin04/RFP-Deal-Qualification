@@ -1,103 +1,120 @@
-import { useState } from 'react';
+// src/App.tsx
+import { useEffect, useRef, useState } from "react";
+import axios from "axios";
 
 interface Message {
-  id: number;
+  role: "user" | "agent";
   content: string;
-  isUser: boolean;
-  timestamp: string;
-  file?: string;
 }
 
-function App() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 1,
-      content: "Welcome! How can I assist you today?",
-      isUser: false,
-      timestamp: new Date().toLocaleTimeString(),
-    },
-  ]);
-  const [inputValue, setInputValue] = useState('');
+const App = () => {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [sessionId] = useState<string>(() => `session-${Date.now()}`);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
-  const sendMessage = () => {
-    if (inputValue.trim() === '' && !file) return;
-
-    const newMessage: Message = {
-      id: messages.length + 1,
-      content: inputValue,
-      isUser: true,
-      timestamp: new Date().toLocaleTimeString(),
-      file: file?.name,
-    };
-
-    setMessages(prev => [...prev, newMessage]);
-    setInputValue('');
-    setFile(null);
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const sendMessage = async () => {
+    if (!input.trim()) return;
+
+    const userMsg = { role: "user" as const, content: input };
+    setMessages((prev) => [...prev, userMsg]);
+    setInput("");
+
+    try {
+      const res = await axios.post("http://localhost:3001/ask-deal-agent", {
+        question: input,
+        sessionId,
+      });
+
+      const agentMsg = {
+        role: "agent" as const,
+        content:
+          res.data.redFlags?.length > 0
+            ? `Red Flags:\n${res.data.redFlags.map((f: any, i: number) => `\n${i + 1}. ${f.flag} → ${f.action}`)}`
+            : res.data.message || "✅ No red flags found.",
+      };
+
+      setMessages((prev) => [...prev, agentMsg]);
+    } catch (err) {
+      console.error("Chat error:", err);
+      setMessages((prev) => [...prev, { role: "agent", content: "⚠️ Failed to fetch response." }]);
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("sessionId", sessionId);
+
+    try {
+      const res = await axios.post("http://localhost:3001/upload-pdf", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      setMessages((prev) => [...prev, { role: "agent", content: res.data.message }]);
+    } catch (err) {
+      console.error("Upload error:", err);
+      setMessages((prev) => [...prev, { role: "agent", content: "⚠️ File upload failed." }]);
     }
   };
 
   return (
-    <div className="h-screen bg-gray-900 text-white">
-      <div className="container mx-auto h-full flex flex-col">
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}
-            >
-              <div className={`max-w-md rounded-lg p-4 ${
-                message.isUser ? 'bg-blue-500' : 'bg-gray-700'
-              }`}>
-                <div className="flex items-start space-x-2">
-                  {message.file && (
-                    <div className="flex-shrink-0">
-                      <img
-                        src={message.file}
-                        alt="Uploaded file"
-                        className="w-12 h-12 object-cover rounded"
-                      />
-                    </div>
-                  )}
-                  <div className="flex-1">
-                    <p className="text-sm text-white/900 mb-1">
-                      {message.timestamp}
-                    </p>
-                    <p className="text-white">{message.content}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-        <div className="border-t border-gray-700 p-4 flex space-x-2">
-          <button
-            onClick={() => document.getElementById('file-upload')?.click()}
-            className="px-4 py-2 bg-blue-500 rounded hover:bg-blue-600"
+    <div className="min-h-screen bg-gray-100 flex flex-col items-center p-4">
+      <h1 className="text-2xl font-bold text-blue-700 mb-4">Deal Qualification Assistant</h1>
+
+      <div className="w-full max-w-2xl bg-white p-4 rounded shadow overflow-y-auto flex-1 space-y-3">
+        {messages.map((msg, index) => (
+          <div
+            key={index}
+            className={`p-3 rounded-lg shadow text-sm whitespace-pre-wrap max-w-lg ${
+              msg.role === "user"
+                ? "bg-blue-100 ml-auto text-right"
+                : "bg-green-100 mr-auto text-left"
+            }`}
           >
-            Upload File
-          </button>
+            {msg.content}
+          </div>
+        ))}
+        <div ref={messagesEndRef} />
+      </div>
+
+      <div className="w-full max-w-2xl mt-4 space-y-3">
+        <div className="flex items-center space-x-2">
           <input
             type="file"
-            id="file-upload"
-            className="hidden"
-            onChange={handleFileChange}
-            accept="image/*,.pdf,.doc,.docx,.txt"
+            accept="application/pdf"
+            onChange={(e) => setFile(e.target.files?.[0] || null)}
+            className="text-sm file:px-4 file:py-2 file:border file:border-gray-300 file:rounded file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
           />
-          <textarea
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            placeholder="Type your message here..."
-            className="flex-1 p-2 bg-gray-800 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+          <button
+            onClick={handleUpload}
+            className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700"
+          >
+            Upload PDF
+          </button>
+        </div>
+
+        <div className="flex">
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Ask a deal-related question..."
+            className="flex-1 p-2 border border-gray-300 rounded-l"
           />
           <button
             onClick={sendMessage}
-            className="px-4 py-2 bg-blue-500 rounded hover:bg-blue-600"
+            className="bg-blue-600 text-white px-6 rounded-r hover:bg-blue-700"
           >
             Send
           </button>
@@ -105,6 +122,6 @@ function App() {
       </div>
     </div>
   );
-}
+};
 
 export default App;
