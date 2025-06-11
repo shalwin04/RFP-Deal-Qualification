@@ -25,48 +25,79 @@ export async function strategicFitAgent(
   const context = documents.map((doc) => doc.pageContent).join("\n\n");
 
   const prompt = ChatPromptTemplate.fromTemplate(`
-You are a strategic deal advisor. Assess the RFP against the following criteria. For each, return:
-- a score from 0.0 to 1.0
-- a justification (1-2 sentences)
-
-Criteria:
-1. Market Alignment (0.10 weight) – Does the RFP align with our core industries or domains?
-2. Win Probability (0.10 weight) – Do we have prior wins, sponsor connections, or history?
-3. Delivery Capability (0.10 weight) – Can we deliver this well with current resources?
-4. Business Justification (0.05 weight) – Is there strong revenue/margin or long-term value?
-
-RFP Content:
-{context}
-
-Return a JSON object like this:[[{
-{
-  "scoreBreakdown": [
-    { "criteria": "Market Alignment", "score": 0.8, "reason": "Well aligned with our core healthcare vertical." },
-    { "criteria": "Win Probability", "score": 0.6, "reason": "Limited prior engagement, but known sponsor." },
-    { "criteria": "Delivery Capability", "score": 0.9, "reason": "We have strong delivery capacity in region." },
-    { "criteria": "Business Justification", "score": 0.7, "reason": "Reasonable revenue and future expansion potential." }
-  ],
-  "totalScore": 1.65
-  }}]]
-`);
+    You are a strategic deal advisor. Assess the RFP based on the criteria below. 
+    For each, return:
+    - a score between 1 and 5 (where 5 = excellent fit)
+    - the reason for the score
+    - the weightedScore (score * weight)
+    
+    Scoring Weights:
+    - Market Alignment: 10%
+    - Win Probability: 10%
+    - Delivery Capability: 10%
+    - Business Justification: 5%
+    
+    Example JSON output:
+    {{
+      "scoreBreakdown": [
+        {{
+          "criteria": "Market Alignment",
+          "score": 5,
+          "weight": 0.10,
+          "weightedScore": 0.5,
+          "reason": "Strong match with our core domain (healthcare)."
+        }},
+        {{
+          "criteria": "Win Probability",
+          "score": 4,
+          "weight": 0.10,
+          "weightedScore": 0.4,
+          "reason": "We have prior engagement with the sponsor."
+        }},
+        {{
+          "criteria": "Delivery Capability",
+          "score": 5,
+          "weight": 0.10,
+          "weightedScore": 0.5,
+          "reason": "We have a full delivery team available in region."
+        }},
+        {{
+          "criteria": "Business Justification",
+          "score": 4,
+          "weight": 0.05,
+          "weightedScore": 0.2,
+          "reason": "Moderate revenue potential but good long-term client."
+        }}
+      ],
+      "totalScore": 1.6
+    }}
+    
+    Now analyze the RFP content below and return the JSON object:
+    
+    RFP Content:
+    {context}
+    `);
+    
 
   const chain = prompt.pipe(model).pipe(new StringOutputParser());
   const output = await chain.invoke({ context });
 
-  let scoreBreakdown = [];
-  let totalScore = 0;
+  let strategicFitScoreBreakdown = [];
+  let strategicFitScore = 0;
 
   try {
     const clean = output.trim().replace(/```json|```/g, "").trim();
     const parsed = JSON.parse(clean);
-    scoreBreakdown = parsed.scoreBreakdown;
-    totalScore = parsed.totalScore;
+    strategicFitScoreBreakdown = parsed.scoreBreakdown;
+    strategicFitScore = parsed.totalScore;
+    console.log("✅ Strategic fit parsed:", strategicFitScoreBreakdown, strategicFitScore);
   } catch (err) {
     console.error("Failed to parse strategic fit output:", err, "\nRaw:", output);
   }
 
   return {
-    scoreBreakdown,
-    score: totalScore,
+    strategicFitScoreBreakdown,
+    strategicFitScore,
   };
 }
+
