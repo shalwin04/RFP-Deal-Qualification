@@ -15,4 +15,5 @@ export const GraphState = Annotation.Root({
   competitiveEdgeScoreBreakdown: Annotation<Record<string, number>>(),
   strategicUpsideScore: Annotation<number>(),
   strategicUpsideScoreBreakdown: Annotation<Record<string, number>>(),
+  finalResponse: Annotation<string>(),
 });

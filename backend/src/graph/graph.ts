@@ -5,7 +5,7 @@ import { strategicFitAgent } from "../agents/strategicFitAgent.js";
 import { customerReadinessAgent } from "../agents/customerReadinessAgent.js";
 import { strategicUpsideAgent } from "../agents/strategicUpsideAgent.js";
 import { competitiveEdgeAgent } from "../agents/competetivEdgeAgent.js";
-// Later: import other agents and aggregator
+// import { dealChatAgent } from "../agents/dealChatAgent.js";
 
 const graph = new StateGraph(GraphState)
   .addNode("redFlagAgent", redFlagAgent)
@@ -13,6 +13,7 @@ const graph = new StateGraph(GraphState)
   .addNode("customerReadinessAgent", customerReadinessAgent)
   .addNode("strategicUpsideAgent", strategicUpsideAgent)
   .addNode("competitiveEdgeAgent", competitiveEdgeAgent)
+  // .addNode("dealChatAgent", dealChatAgent)
   .addEdge(START, "redFlagAgent")
   .addEdge("redFlagAgent", "strategicFitAgent")
   .addEdge("strategicFitAgent", "customerReadinessAgent")
