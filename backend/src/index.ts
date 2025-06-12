@@ -5,6 +5,7 @@ import fs from "fs";
 import cors from "cors";
 import { processPdfUpload } from "./utils/processPDFUpload.js";
 import { compiledGraph } from "./graph/graph.js";
+import { dealChatAgent } from "./agents/dealChatAgent.js";
 
 dotenv.config();
 
@@ -16,8 +17,11 @@ app.use(express.json());
 
 const upload = multer({ dest: "uploads/" });
 
-// Route: Upload and process PDF
-app.post("/upload-pdf", upload.single("file"), async (req :Request, res :Response) => {
+const sessionStates = new Map<string, any>();
+/**
+ * 📄 Route: Upload PDF + run agents (excluding chat agent)
+ */
+app.post("/upload-pdf", upload.single("file"), async (req: Request, res: Response) => {
   try {
     const sessionId = req.body.sessionId || "demo-session";
     const filePath = req.file?.path;
@@ -28,19 +32,23 @@ app.post("/upload-pdf", upload.single("file"), async (req :Request, res :Respons
     }
 
     await processPdfUpload({ filePath, sessionId });
+    fs.unlink(filePath, () => {}); // Delete local temp file
 
-    // Optional: delete local file after embedding
-    fs.unlink(filePath, () => {});
+    // ⏱️ Trigger Graph to compute qualification + store in memory (excluding chat)
+    const fullState = await compiledGraph.invoke({ sessionId });
+    sessionStates.set(sessionId, fullState); // ✅ Cache it for reuse
 
-    res.json({ message: "✅ PDF processed and embedded.", sessionId });
+    res.json({ message: "✅ PDF processed and agents executed.", sessionId });
   } catch (e) {
     console.error("❌ Upload failed:", e);
     res.status(500).json({ error: "Upload failed" });
   }
 });
 
-// Route: Run Deal Agent Graph
-app.post("/ask-deal-agent", async (req :Request, res :Response) => {
+/**
+ * 💬 Route: Ask a question – run only the dealChatAgent node
+ */
+app.post("/ask-deal-agent", async (req: Request, res: Response) => {
   try {
     const sessionId = req.body.sessionId || "demo-session";
     const question = req.body.question;
@@ -50,34 +58,25 @@ app.post("/ask-deal-agent", async (req :Request, res :Response) => {
       return;
     }
 
-    const inputs = { question, sessionId };
-    const config = {
-        configurable: {
-          thread_id: `user-signin-${Date.now()}`,
-        },
-      };
-
-    let responsePayload = {
-      redFlags: [] as string[],
-      message: "No agent response.",
-    };
-
-    for await (const output of await compiledGraph.stream(inputs, config)) {
-      const key = Object.keys(output)[0];
-      const value = output[key as keyof typeof output];
-
-      if (key === "redFlagAgent" && "redFlags" in value) {
-        responsePayload.redFlags = value.redFlags || [];
-        responsePayload.message = "Red flags detected.";
-      }
+    const cachedState = sessionStates.get(sessionId);
+    if (!cachedState) {
+      res.status(400).json({ error: "No session found. Upload an RFP first." });
+      return;
     }
 
-    res.json(responsePayload);
+    // Inject latest question into cached state
+    const fullStateWithQuestion = { ...cachedState, question };
+
+    // 💬 Use it to generate AI reply
+    const answer = await dealChatAgent(fullStateWithQuestion);
+
+    res.json({ answer });
   } catch (e) {
-    console.error("❌ Agent error:", e);
-    res.status(500).json({ error: "Agent processing failed" });
+    console.error("❌ Deal chat error:", e);
+    res.status(500).json({ error: "Failed to generate response" });
   }
 });
+
 
 app.listen(PORT, () => {
   console.log(`🚀 Backend running on http://localhost:${PORT}`);
