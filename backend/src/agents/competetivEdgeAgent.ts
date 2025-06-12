@@ -34,6 +34,7 @@ Criteria:
 3. Client Relationship (10%) – Do we have prior engagement, rapport, or insights?
 
 Score each on a scale of 1 (poor) to 5 (excellent). Then compute the weightedScore using the given weight.
+    weightedScore = (score × weight
 
 RFP Content and Notes:
 {context}

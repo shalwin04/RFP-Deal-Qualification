@@ -21,46 +21,48 @@ export async function customerReadinessAgent(
   const context = documents.map((doc) => doc.pageContent).join("\n\n");
 
   const prompt = ChatPromptTemplate.fromTemplate(`
-You are an expert deal qualification analyst.
-Assess the customer readiness based on the following criteria.
-Score each between 1–5 and compute the weighted contribution based on the specified weights.
-
-Criteria:
+    You are an expert deal qualification analyst.
+    Assess customer readiness using the following criteria.
+    
+    Criteria:
 1. Stakeholder Clarity (Weight: 10%) – Are goals and success metrics clearly defined?
 2. Decision-Maker Access (Weight: 5%) – Are sponsors or influencers identified or reachable?
 3. Project Background (Weight: 5%) – Are pain points, urgency, or past attempts explained?
-
-RFP Content:
-{context}
-
-Return your output as JSON:
-{{
-  "scoreBreakdown": [
+    
+    Each criterion must be scored between 1 and 5, then calculate the weighted score as:  
+    weightedScore = (score × weight
+    
+    Return the result as valid JSON. Below is a example:
     {{
-      "criteria": "Stakeholder Clarity",
-      "score": 4,
-      "weight": 0.10,
-      "weightedScore": 0.4,
-      "reason": "Success criteria outlined clearly."
-    }},
-    {{
-      "criteria": "Decision-Maker Access",
-      "score": 3,
-      "weight": 0.05,
-      "weightedScore": 0.15,
-      "reason": "Sponsors mentioned but not directly accessible."
-    }},
-    {{
-      "criteria": "Project Background",
-      "score": 5,
-      "weight": 0.05,
-      "weightedScore": 0.25,
-      "reason": "The RFP highlights urgency and past failed projects."
+      "scoreBreakdown": [
+        {{
+          "criteria": "Stakeholder Clarity",
+          "score": 4,
+          "weight": 0.10,
+          "weightedScore": 0.4,
+          "reason": "Success criteria outlined clearly."
+        }},
+        {{
+          "criteria": "Decision-Maker Access",
+          "score": 3,
+          "weight": 0.05,
+          "weightedScore": 0.3
+        }},
+        {{
+          "criteria": "Project Background",
+          "score": 5,
+          "weight": 0.05,
+          "weightedScore": 0.25,
+          "reason": "Urgency and past projects explained well."
+        }}
+      ],
+      "totalScore": 0.95
     }}
-  ],
-  "totalScore": 0.8
-}}
-  `);
+    
+    RFP Content:
+    {context}
+    `);
+    
 
   const chain = prompt.pipe(model).pipe(new StringOutputParser());
   const output = await chain.invoke({ context });
