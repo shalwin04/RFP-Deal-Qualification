@@ -11,6 +11,8 @@ export const GraphState = Annotation.Root({
   customerReadinessScoreBreakdown: Annotation<Record<string, number>>(),
   qualificationVerdict: Annotation<"GO" | "REVIEW" | "NO-GO">(),
   strategyIdeas: Annotation<string[]>(),
+  competitiveEdgeScore: Annotation<number>(),
+  competitiveEdgeScoreBreakdown: Annotation<Record<string, number>>(),
   strategicUpsideScore: Annotation<number>(),
   strategicUpsideScoreBreakdown: Annotation<Record<string, number>>(),
 });
